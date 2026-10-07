@@ -1,0 +1,21 @@
+# Maintainer: openOODA-tools <ops@openooda.org>
+pkgname=oofile-bin
+_pkgname=oofile
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Magic-byte based file format, MIME type, and encoding identification without exec."
+arch=('x86_64')
+url="https://github.com/openOODA-tools/oofile"
+license=('Apache-2.0')
+depends=('glibc')
+provides=('oofile')
+conflicts=('oofile')
+source_x86_64=("${url}/releases/download/v${pkgver}/oofile-linux-x86_64"
+               "uninstall.sh::https://raw.githubusercontent.com/openOODA-tools/${_pkgname}/v${pkgver}/uninstall.sh")
+sha256sums_x86_64=('SKIP'
+                   'SKIP')
+
+package() {
+    install -Dm755 "${srcdir}/oofile-linux-x86_64" "${pkgdir}/usr/bin/oofile"
+    install -Dm755 uninstall.sh "${pkgdir}/usr/bin/oofile-uninstall"
+}
