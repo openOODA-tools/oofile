@@ -1,0 +1,86 @@
+// # POSIX File Identification Output Renderer
+//
+// Logline: Formats terminal file diagnostics adhering to POSIX brief and MIME conventions.
+//
+// Setup: Pure string formatting routines producing standardized terminal reports.
+//
+// Beats:
+//   1. Format standard filename: description output lines.
+//   2. Support -b/--brief mode suppressing filename prefixes.
+//   3. Support -i/--mime, --mime-type, and --mime-encoding output filters.
+//   4. Deliver CLI help, version, and synthetic file demo showcases.
+
+import "core/magic_signatures.oo";
+import "core/file_detector.oo";
+
+pub fn render_file_result(
+    path: String,
+    fmt: FileFormat,
+    brief: Bool,
+    mime: Bool,
+    mime_type_only: Bool,
+    mime_enc_only: Bool
+) -> String {
+    let mut desc: String = "";
+    if mime_type_only {
+        desc = fmt.mime_type;
+    } else if mime_enc_only {
+        desc = fmt.charset;
+    } else if mime {
+        desc = fmt.mime_type + "; charset=" + fmt.charset;
+    } else {
+        desc = fmt.description;
+    }
+
+    if brief {
+        return desc + "\n";
+    }
+    return path + ": " + desc + "\n";
+}
+
+pub fn render_help() -> String {
+    return "oofile 0.2.0 (openOODA sovereign search & inspection)\n"
+        + "usage: oofile [options] [FILE...]\n\n"
+        + "Magic-byte based file format, MIME type, and encoding identification without exec.\n\n"
+        + "POSIX Options:\n"
+        + "  -b, --brief           do not prepend filenames to output lines\n"
+        + "  -i, --mime            output MIME type strings (--mime-type and --mime-encoding)\n"
+        + "      --mime-type       output only the MIME type string\n"
+        + "      --mime-encoding   output only the MIME encoding string\n"
+        + "  -L, --dereference     follow symlinks\n"
+        + "  -h, --no-dereference  do not follow symlinks [default]\n"
+        + "  -j, --json            output file identification records as JSON Lines\n"
+        + "  -D, --demo            synthetic multi-format file identification showcase\n"
+        + "      --test            execute internal subsystem verification suite\n"
+        + "      --mcp             run as Model Context Protocol JSON-RPC stdio server\n"
+        + "  -v, --version         output version information and exit\n"
+        + "      --help            display this help and exit\n";
+}
+
+pub fn render_version() -> String {
+    return "oofile 0.2.0 (openOODA sovereign search & inspection)\n"
+        + "License: Apache License 2.0 (zero ambient authority)\n"
+        + "Architecture: x86_64 / aarch64 native binary\n";
+}
+
+pub fn render_demo() -> String {
+    let mut out: String = "=== oofile Sovereign File Identification Showcase ===\n\n";
+
+    let f_elf: FileFormat = detect_format_from_bytes("\u007fELF\u0002\u0001\u0001\u0000");
+    out = out + render_file_result("bin/oofile", f_elf, false, false, false, false);
+    out = out + "  [MIME]: " + render_file_result("bin/oofile", f_elf, true, true, false, false) + "\n";
+
+    let f_pdf: FileFormat = detect_format_from_bytes("%PDF-1.7\n");
+    out = out + render_file_result("docs/spec.pdf", f_pdf, false, false, false, false);
+    out = out + "  [MIME]: " + render_file_result("docs/spec.pdf", f_pdf, true, true, false, false) + "\n";
+
+    let f_png: FileFormat = detect_format_from_bytes("\u0089PNG\r\n\u001a\n");
+    out = out + render_file_result("assets/logo.png", f_png, false, false, false, false);
+    out = out + "  [MIME]: " + render_file_result("assets/logo.png", f_png, true, true, false, false) + "\n";
+
+    let f_sh: FileFormat = detect_format_from_bytes("#!/bin/bash\nset -eu\n");
+    out = out + render_file_result("install.sh", f_sh, false, false, false, false);
+    out = out + "  [MIME]: " + render_file_result("install.sh", f_sh, true, true, false, false) + "\n";
+
+    return out;
+}

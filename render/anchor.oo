@@ -1,0 +1,87 @@
+// # Render Subsystem Anchor
+//
+// Logline: Unit tests for file result formatting, brief mode, MIME filtering, and JSON serialization.
+//
+// Setup: Pure verification of rendering output formats without filesystem or socket access.
+//
+// Beats:
+//   1. Verify default filename: description formatting.
+//   2. Verify -b brief mode and -i MIME strings.
+//   3. Verify JSON serialization of file identification payloads.
+//   4. Deliver unified render test execution status.
+
+import "core/magic_signatures.oo";
+import "render/render_file.oo";
+import "render/render_json.oo";
+
+fn str_contains(s: String, needle: String) -> Bool {
+    let n_len: Int = chars_len(needle);
+    let s_len: Int = chars_len(s);
+    if n_len > s_len {
+        return false;
+    }
+    let mut i: Int = 0;
+    while i + n_len <= s_len {
+        if str_slice(s, i, i + n_len) == needle {
+            return true;
+        }
+        i = i + 1;
+    }
+    return false;
+}
+
+fn test_render_file_output() -> Bool {
+    let f_pdf: FileFormat = format_pdf();
+    let res_full: String = render_file_result("doc.pdf", f_pdf, false, false, false, false);
+    if !str_contains(res_full, "doc.pdf: PDF document") {
+        return false;
+    }
+
+    let res_brief: String = render_file_result("doc.pdf", f_pdf, true, false, false, false);
+    if str_contains(res_brief, "doc.pdf:") {
+        return false;
+    }
+    if !str_contains(res_brief, "PDF document") {
+        return false;
+    }
+
+    let res_mime: String = render_file_result("doc.pdf", f_pdf, true, true, false, false);
+    if !str_contains(res_mime, "application/pdf; charset=binary") {
+        return false;
+    }
+
+    let res_mime_only: String = render_file_result("doc.pdf", f_pdf, true, false, true, false);
+    if !str_contains(res_mime_only, "application/pdf") {
+        return false;
+    }
+
+    return true;
+}
+
+fn test_render_json_output() -> Bool {
+    let f_elf: FileFormat = format_elf();
+    let json_str: String = render_file_json("bin/prog", f_elf, 1024);
+    if !str_contains(json_str, "\"mime_type\": \"application/x-executable\"") {
+        return false;
+    }
+    if !str_contains(json_str, "\"size\": 1024") {
+        return false;
+    }
+
+    let cat_json: String = render_magic_catalog_json();
+    if !str_contains(cat_json, "signatures") || !str_contains(cat_json, "wasm") {
+        return false;
+    }
+
+    return true;
+}
+
+pub fn run_render_tests() -> Bool {
+    if !test_render_file_output() {
+        return false;
+    }
+    if !test_render_json_output() {
+        return false;
+    }
+    return true;
+}

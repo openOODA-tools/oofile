@@ -1,0 +1,161 @@
+// # File Format Detector
+//
+// Logline: Magic byte scanning, shebang interpretation, and text encoding analysis.
+//
+// Setup: Pure byte-level pattern recognition matching standard binary magic signatures.
+//
+// Beats:
+//   1. Check empty input and boundary lengths.
+//   2. Match binary signatures for executables, archives, and media formats.
+//   3. Parse script shebang lines and interpreter names.
+//   4. Classify ASCII, UTF-8, and opaque binary data streams.
+
+import "core/magic_signatures.oo";
+
+fn is_prefix_match(buf: String, prefix: String) -> Bool {
+    let p_len: Int = chars_len(prefix);
+    let b_len: Int = chars_len(buf);
+    if b_len < p_len {
+        return false;
+    }
+    return str_slice(buf, 0, p_len) == prefix;
+}
+
+fn check_bytes4(buf: String, b0: Int, b1: Int, b2: Int, b3: Int) -> Bool {
+    if chars_len(buf) < 4 {
+        return false;
+    }
+    return byte_at(buf, 0) == b0 && byte_at(buf, 1) == b1 && byte_at(buf, 2) == b2 && byte_at(buf, 3) == b3;
+}
+
+fn check_bytes2(buf: String, b0: Int, b1: Int) -> Bool {
+    if chars_len(buf) < 2 {
+        return false;
+    }
+    return byte_at(buf, 0) == b0 && byte_at(buf, 1) == b1;
+}
+
+fn check_bytes3(buf: String, b0: Int, b1: Int, b2: Int) -> Bool {
+    if chars_len(buf) < 3 {
+        return false;
+    }
+    return byte_at(buf, 0) == b0 && byte_at(buf, 1) == b1 && byte_at(buf, 2) == b2;
+}
+
+fn parse_shebang_interp(buf: String) -> String {
+    let n: Int = chars_len(buf);
+    let mut end: Int = 2;
+    while end < n && byte_at(buf, end) != 10 && byte_at(buf, end) != 13 {
+        end = end + 1;
+    }
+    let first_line: String = str_slice(buf, 2, end);
+    let trimmed: String = str_trim(first_line);
+    return trimmed;
+}
+
+fn is_ascii_or_utf8(buf: String) -> Int {
+    let n: Int = chars_len(buf);
+    let limit: Int = if n > 512 { 512 } else { n };
+    let mut i: Int = 0;
+    let mut has_high_bytes: Bool = false;
+
+    while i < limit {
+        let b: Int = byte_at(buf, i);
+        if b == 0 {
+            return 0; // null byte -> binary
+        }
+        if (b < 32 && b != 9 && b != 10 && b != 13) {
+            return 0; // non-text control byte -> binary
+        }
+        if b >= 128 {
+            has_high_bytes = true;
+        }
+        i = i + 1;
+    }
+
+    if has_high_bytes {
+        return 2; // UTF-8
+    }
+    return 1; // ASCII
+}
+
+pub fn detect_format_from_bytes(buf: String) -> FileFormat {
+    let n: Int = chars_len(buf);
+    if n == 0 {
+        return format_empty();
+    }
+
+    // 1. Executables
+    if check_bytes4(buf, 127, 69, 76, 70) { // \x7fELF
+        return format_elf();
+    }
+    if check_bytes2(buf, 77, 90) { // MZ
+        return format_pe();
+    }
+    if check_bytes4(buf, 0, 97, 115, 109) { // \0asm
+        return format_wasm();
+    }
+
+    // 2. Documents & Media
+    if is_prefix_match(buf, "%PDF-") {
+        return format_pdf();
+    }
+    if check_bytes4(buf, 137, 80, 78, 71) { // \x89PNG
+        return format_png();
+    }
+    if check_bytes3(buf, 255, 216, 255) { // JPEG
+        return format_jpeg();
+    }
+    if is_prefix_match(buf, "GIF87a") || is_prefix_match(buf, "GIF89a") {
+        return format_gif();
+    }
+    if is_prefix_match(buf, "RIFF") && n >= 12 && str_slice(buf, 8, 12) == "WEBP" {
+        return format_webp();
+    }
+
+    // 3. Archives
+    if check_bytes4(buf, 80, 75, 3, 4) { // PK\x03\x04
+        return format_zip();
+    }
+    if check_bytes2(buf, 31, 139) { // \x1f\x8b
+        return format_gzip();
+    }
+    if check_bytes3(buf, 66, 90, 104) { // BZh
+        return format_bzip2();
+    }
+    if check_bytes4(buf, 55, 122, 188, 175) { // 7z\xbc\xaf
+        return format_7z();
+    }
+    if check_bytes4(buf, 40, 181, 47, 253) { // Zstandard \x28\xb5\x2f\xfd
+        return format_zstd();
+    }
+    if is_prefix_match(buf, "SQLite format 3") {
+        return format_sqlite();
+    }
+
+    // 4. Scripts & Structured Data
+    if check_bytes2(buf, 35, 33) { // #!
+        let interp: String = parse_shebang_interp(buf);
+        return format_shell_script(interp);
+    }
+    if is_prefix_match(buf, "<?xml") {
+        return format_xml();
+    }
+    if is_prefix_match(buf, "{") || is_prefix_match(buf, "[") {
+        let t_res: Int = is_ascii_or_utf8(buf);
+        if t_res > 0 {
+            return format_json();
+        }
+    }
+
+    // 5. Plain text vs binary
+    let enc: Int = is_ascii_or_utf8(buf);
+    if enc == 1 {
+        return format_ascii_text();
+    }
+    if enc == 2 {
+        return format_utf8_text();
+    }
+
+    return format_binary_data();
+}

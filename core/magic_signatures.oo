@@ -1,0 +1,130 @@
+// # Magic Byte Signatures Subsystem
+//
+// Logline: Canonical file format definitions, MIME types, and signature catalog.
+//
+// Setup: Pure metadata mappings adhering to IANA media types and POSIX file definitions.
+//
+// Beats:
+//   1. Declare FileFormat descriptor structure.
+//   2. Define executable, archive, image, and document format specifications.
+//   3. Define text, script shebang, and binary fallback format types.
+//   4. Deliver structured metadata records for file identification.
+
+pub type FileFormat = struct {
+    name: String,
+    mime_type: String,
+    charset: String,
+    description: String,
+    category: String
+};
+
+fn make_format(name: String, mime: String, cs: String, desc: String, cat: String) -> FileFormat {
+    return FileFormat {
+        name: name,
+        mime_type: mime,
+        charset: cs,
+        description: desc,
+        category: cat
+    };
+}
+
+pub fn format_elf() -> FileFormat {
+    return make_format("elf", "application/x-executable", "binary", "ELF 64-bit LSB executable, x86-64, version 1 (SYSV)", "executable");
+}
+
+pub fn format_pe() -> FileFormat {
+    return make_format("pe", "application/x-dosexec", "binary", "PE32+ executable (console) x86-64, for MS Windows", "executable");
+}
+
+pub fn format_macho() -> FileFormat {
+    return make_format("macho", "application/x-mach-binary", "binary", "Mach-O 64-bit executable arm64", "executable");
+}
+
+pub fn format_wasm() -> FileFormat {
+    return make_format("wasm", "application/wasm", "binary", "WebAssembly (WASM) binary module version 0x1", "executable");
+}
+
+pub fn format_pdf() -> FileFormat {
+    return make_format("pdf", "application/pdf", "binary", "PDF document, version 1.7", "document");
+}
+
+pub fn format_png() -> FileFormat {
+    return make_format("png", "image/png", "binary", "PNG image data, 8-bit/color RGBA, non-interlaced", "image");
+}
+
+pub fn format_jpeg() -> FileFormat {
+    return make_format("jpeg", "image/jpeg", "binary", "JPEG image data, JFIF standard 1.01", "image");
+}
+
+pub fn format_gif() -> FileFormat {
+    return make_format("gif", "image/gif", "binary", "GIF image data, version 89a", "image");
+}
+
+pub fn format_webp() -> FileFormat {
+    return make_format("webp", "image/webp", "binary", "RIFF (little-endian) data, WebP image", "image");
+}
+
+pub fn format_zip() -> FileFormat {
+    return make_format("zip", "application/zip", "binary", "Zip archive data, at least PKZIP v2.0 to extract", "archive");
+}
+
+pub fn format_gzip() -> FileFormat {
+    return make_format("gzip", "application/gzip", "binary", "gzip compressed data, max compression, from Unix", "archive");
+}
+
+pub fn format_bzip2() -> FileFormat {
+    return make_format("bzip2", "application/x-bzip2", "binary", "bzip2 compressed data, block size = 900k", "archive");
+}
+
+pub fn format_xz() -> FileFormat {
+    return make_format("xz", "application/x-xz", "binary", "XZ compressed data", "archive");
+}
+
+pub fn format_zstd() -> FileFormat {
+    return make_format("zstd", "application/zstd", "binary", "Zstandard compressed data (v0.8+)", "archive");
+}
+
+pub fn format_7z() -> FileFormat {
+    return make_format("7z", "application/x-7z-compressed", "binary", "7-zip archive data, version 0.4", "archive");
+}
+
+pub fn format_tar() -> FileFormat {
+    return make_format("tar", "application/x-tar", "binary", "POSIX tar archive (GNU)", "archive");
+}
+
+pub fn format_sqlite() -> FileFormat {
+    return make_format("sqlite", "application/vnd.sqlite3", "binary", "SQLite 3.x database, user version 0", "database");
+}
+
+pub fn format_shell_script(interp: String) -> FileFormat {
+    let desc: String = if chars_len(interp) > 0 {
+        interp + " script, ASCII text executable"
+    } else {
+        "POSIX shell script, ASCII text executable"
+    };
+    return make_format("shell_script", "text/x-shellscript", "us-ascii", desc, "script");
+}
+
+pub fn format_json() -> FileFormat {
+    return make_format("json", "application/json", "utf-8", "JSON data", "data");
+}
+
+pub fn format_xml() -> FileFormat {
+    return make_format("xml", "application/xml", "us-ascii", "XML 1.0 document, ASCII text", "document");
+}
+
+pub fn format_ascii_text() -> FileFormat {
+    return make_format("ascii", "text/plain", "us-ascii", "ASCII text", "text");
+}
+
+pub fn format_utf8_text() -> FileFormat {
+    return make_format("utf8", "text/plain", "utf-8", "UTF-8 Unicode text", "text");
+}
+
+pub fn format_empty() -> FileFormat {
+    return make_format("empty", "inode/x-empty", "binary", "empty", "empty");
+}
+
+pub fn format_binary_data() -> FileFormat {
+    return make_format("data", "application/octet-stream", "binary", "data", "binary");
+}

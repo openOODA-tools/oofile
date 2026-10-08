@@ -1,0 +1,167 @@
+// # Streaming MCP Server for File Identification
+//
+// Logline: JSON-RPC 2.0 stdio server providing sovereign MIME detection, magic byte analysis, and format inspection.
+//
+// Setup: Bridges standard input/output streaming protocol to file detectors and signature catalogs.
+//
+// Beats:
+//   1. Handle MCP initialize handshake with server metadata and capability declarations.
+//   2. Expose tools/list catalogue with five sovereign file inspection tools.
+//   3. Dispatch tools/call for file_identify, file_mime_type, file_detect_bytes, inspect_magic, and demo.
+//   4. Deliver streaming JSON-RPC responses over standard output.
+
+import "core/magic_signatures.oo";
+import "core/file_detector.oo";
+import "render/render_file.oo";
+import "render/render_json.oo";
+import "ipc/json_field.oo";
+
+fn build_error(id: String, code: Int, msg: String) -> String {
+    return "{\"jsonrpc\":\"2.0\",\"id\":" + id + ",\"error\":{\"code\":"
+        + code.to_string() + ",\"message\":\"" + json_escape(msg) + "\"}}\n";
+}
+
+fn build_tool_result(id: String, text: String) -> String {
+    return "{\"jsonrpc\":\"2.0\",\"id\":" + id + ",\"result\":{\"content\":[{\"type\":\"text\",\"text\":\""
+        + json_escape(text) + "\"}]}}\n";
+}
+
+pub fn render_mcp_init(id: String) -> String {
+    return "{\"jsonrpc\":\"2.0\",\"id\":" + id
+        + ",\"result\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{\"tools\":{}},\"serverInfo\":{\"name\":\"oofile\",\"version\":\"0.2.0\"}}}\n";
+}
+
+pub fn render_mcp_tools_list(id: String) -> String {
+    let mut out: String = "{\"jsonrpc\":\"2.0\",\"id\":" + id + ",\"result\":{\"tools\":[";
+    out = out + "{\"name\":\"file_identify\",\"description\":\"Identifies file format, MIME type, and encoding for target path.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\"},\"brief\":{\"type\":\"boolean\"},\"mime\":{\"type\":\"boolean\"}}}}";
+    out = out + ",{\"name\":\"file_mime_type\",\"description\":\"Returns only the MIME type string for target file.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\"}}}}";
+    out = out + ",{\"name\":\"file_detect_bytes\",\"description\":\"Detects format directly from in-memory string prefix bytes without disk I/O.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"bytes\":{\"type\":\"string\"},\"json_mode\":{\"type\":\"boolean\"}}}}";
+    out = out + ",{\"name\":\"file_inspect_magic\",\"description\":\"Lists recognized binary magic signatures, offsets, and MIME types.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{}}}";
+    out = out + ",{\"name\":\"file_demo\",\"description\":\"Runs interactive multi-format file identification showcase.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{}}}";
+    out = out + "]}}\n";
+    return out;
+}
+
+pub fn handle_mcp_call(fr: &FsReadCap, id: String, tool_name: String, req: String) -> String {
+    if tool_name == "file_demo" {
+        return build_tool_result(id, render_demo());
+    }
+
+    if tool_name == "file_inspect_magic" {
+        return build_tool_result(id, render_magic_catalog_json());
+    }
+
+    if tool_name == "file_detect_bytes" {
+        let b_str: String = json_extract_str_field(req, "bytes");
+        let json_mode: Bool = json_extract_bool_field(req, "json_mode", false);
+        let fmt: FileFormat = detect_format_from_bytes(b_str);
+        let out: String = if json_mode {
+            render_file_json("<memory>", fmt, chars_len(b_str))
+        } else {
+            render_file_result("<memory>", fmt, false, false, false, false)
+        };
+        return build_tool_result(id, out);
+    }
+
+    if tool_name == "file_identify" {
+        let path: String = json_extract_str_field(req, "path");
+        let brief_flag: Bool = json_extract_bool_field(req, "brief", false);
+        let mime_flag: Bool = json_extract_bool_field(req, "mime", false);
+
+        let r: Result[String, String] = read_file(fr, path);
+        if !r.is_ok() {
+            return build_error(id, -32000, "Cannot open or read target file: " + path);
+        }
+        let content: String = match r { Ok(s) => s, Err(_) => "" };
+        let fmt: FileFormat = detect_format_from_bytes(content);
+        let out: String = render_file_result(path, fmt, brief_flag, mime_flag, false, false);
+        return build_tool_result(id, out);
+    }
+
+    if tool_name == "file_mime_type" {
+        let path: String = json_extract_str_field(req, "path");
+        let r: Result[String, String] = read_file(fr, path);
+        if !r.is_ok() {
+            return build_error(id, -32000, "Cannot open or read target file: " + path);
+        }
+        let content: String = match r { Ok(s) => s, Err(_) => "" };
+        let fmt: FileFormat = detect_format_from_bytes(content);
+        return build_tool_result(id, fmt.mime_type);
+    }
+
+    return build_error(id, -32601, "Method or tool not found: " + tool_name);
+}
+
+pub fn handle_mcp_message(fr: &FsReadCap, req: String) -> String {
+    let id_str: String = json_extract_str_field(req, "id");
+    let id_int: Int = json_extract_int_field(req, "id", -1);
+    let id: String = if chars_len(id_str) > 0 {
+        "\"" + id_str + "\""
+    } else if id_int >= 0 {
+        id_int.to_string()
+    } else {
+        "1"
+    };
+    let method: String = json_extract_str_field(req, "method");
+
+    if method == "initialize" {
+        return render_mcp_init(id);
+    }
+    if method == "notifications/initialized" {
+        return "";
+    }
+    if method == "tools/list" {
+        return render_mcp_tools_list(id);
+    }
+    if method == "tools/call" {
+        let tool_name: String = json_extract_str_field(req, "name");
+        return handle_mcp_call(fr, id, tool_name, req);
+    }
+    if method == "shutdown" {
+        return "{\"jsonrpc\":\"2.0\",\"id\":" + id + ",\"result\":null}\n";
+    }
+    return build_error(id, -32601, "Method not found: " + method);
+}
+
+fn find_newline_pos(s: String) -> Int {
+    let n: Int = chars_len(s);
+    let mut i: Int = 0;
+    while i < n {
+        if byte_at(s, i) == 10 {
+            return i;
+        }
+        i = i + 1;
+    }
+    return -1;
+}
+
+pub fn run_mcp_server(fr: &FsReadCap) {
+    let mut buf: String = "";
+    let mut running: Bool = true;
+    while running {
+        let r: Result[String, String] = oo_read_stdin_chunk(fr, 4096);
+        if !r.is_ok() {
+            running = false;
+        } else {
+            let chunk: String = match r { Ok(s) => s, Err(_) => "" };
+            if chars_len(chunk) == 0 {
+                running = false;
+            } else {
+                buf = buf + chunk;
+                let mut nl_pos: Int = find_newline_pos(buf);
+                while nl_pos >= 0 {
+                    let line: String = str_slice(buf, 0, nl_pos);
+                    buf = str_slice(buf, nl_pos + 1, chars_len(buf));
+                    let trimmed: String = str_trim(line);
+                    if chars_len(trimmed) > 0 {
+                        let resp: String = handle_mcp_message(fr, trimmed);
+                        if chars_len(resp) > 0 {
+                            print(resp);
+                        }
+                    }
+                    nl_pos = find_newline_pos(buf);
+                }
+            }
+        }
+    }
+}

@@ -1,38 +1,35 @@
 // # oofile Main Entry Point
 //
-// Logline: Magic-byte based file format, MIME type, and encoding identification without exec.
+// Logline: Sovereign file format identifier, MIME type resolver, and streaming MCP server.
 //
-// Setup: Demands explicit capability tokens and standard argument list.
+// Setup: Demands explicit capability tokens &FsReadCap, &ProcessCap, and &EnvCap under zero ambient authority.
 //
 // Beats:
-//   1. Parse command-line options and dispatch --help, --version, or --mcp.
-//   2. Execute capability-bounded oofile operations.
-//   3. Format and output structured results to standard output.
+//   1. Parse command-line options and dispatch --help, --version, --test, or --mcp.
+//   2. Route synthetic showcase requests for --demo execution.
+//   3. Ingest target file streams and execute magic-byte inspections.
+//   4. Format and output file identification diagnostics as POSIX lines or structured JSON.
 
-fn render_help() -> String {
-    return "oofile 0.1.0 (openOODA sovereign files & navigation)\n"
-        + "usage: oofile [options] [ARGUMENTS]...\n\n"
-        + "Magic-byte based file format, MIME type, and encoding identification without exec.\n\n"
-        + "Options:\n"
-        + "  -h, --help           display this help and exit\n"
-        + "  -v, --version        output version information and exit\n"
-        + "      --json           output formatted as JSON Lines\n"
-        + "      --color <WHEN>   colorize output: auto, always, never [default: auto]\n"
-        + "      --theme <NAME>   override active oote palette\n"
-        + "      --mcp            run as Model Context Protocol stdio server\n";
-}
+import "core/magic_signatures.oo";
+import "core/file_detector.oo";
+import "render/render_file.oo";
+import "render/render_json.oo";
+import "ipc/cli_options.oo";
+import "ipc/mcp_server.oo";
+import "anchor.oo";
 
-fn render_version() -> String {
-    return "oofile 0.1.0 (openOODA sovereign files & navigation)\n";
-}
-
-fn main(args: List[String]) -> Int {
+pub fn main(
+    fr: &FsReadCap,
+    _pr: &ProcessCap,
+    _env: &EnvCap,
+    args: List[String]
+) -> Int {
     let num_args: Int = list_len(args);
     let mut i: Int = 0;
 
     while i < num_args {
         let arg: String = list_get(args, i);
-        if arg == "-h" || arg == "--help" {
+        if arg == "--help" {
             print(render_help());
             return 0;
         }
@@ -40,13 +37,85 @@ fn main(args: List[String]) -> Int {
             print(render_version());
             return 0;
         }
+        if arg == "--test" {
+            if run_all_tests() {
+                print("oofile: internal anchor tests PASSED\n");
+                return 0;
+            } else {
+                print("oofile: internal anchor tests FAILED\n");
+                return 1;
+            }
+        }
         if arg == "--mcp" {
-            print("{\"jsonrpc\":\"2.0\",\"result\":{\"status\":\"ready\",\"tool\":\"oofile\"}}\n");
+            run_mcp_server(fr);
+            return 0;
+        }
+        if arg == "-D" || arg == "--demo" {
+            print(render_demo());
             return 0;
         }
         i = i + 1;
     }
 
-    print("oofile: sovereign capability-bounded utility ready\n");
+    let opts: FileOpts = parse_cli_args(args);
+
+    if opts.show_help {
+        print(render_help());
+        return 0;
+    }
+    if opts.show_version {
+        print(render_version());
+        return 0;
+    }
+    if opts.demo_mode {
+        print(render_demo());
+        return 0;
+    }
+
+    let num_files: Int = list_len(opts.files);
+
+    if num_files == 0 {
+        // Read from standard input
+        let r: Result[String, String] = oo_read_stdin_chunk(fr, 65536);
+        let stdin_content: String = if r.is_ok() {
+            match r { Ok(s) => s, Err(_) => "" }
+        } else {
+            ""
+        };
+        let fmt: FileFormat = detect_format_from_bytes(stdin_content);
+        if opts.json_mode {
+            print(render_file_json("/dev/stdin", fmt, chars_len(stdin_content)));
+        } else {
+            print(render_file_result("/dev/stdin", fmt, opts.brief, opts.mime, opts.mime_type_only, opts.mime_enc_only));
+        }
+        return 0;
+    }
+
+    let mut f_idx: Int = 0;
+    while f_idx < num_files {
+        let target_path: String = list_get(opts.files, f_idx);
+        let r: Result[String, String] = read_file(fr, target_path);
+
+        if !r.is_ok() {
+            print(target_path + ": cannot open (No such file or directory)\n");
+        } else {
+            let content: String = match r { Ok(s) => s, Err(_) => "" };
+            let fmt: FileFormat = detect_format_from_bytes(content);
+            if opts.json_mode {
+                print(render_file_json(target_path, fmt, chars_len(content)));
+            } else {
+                print(render_file_result(
+                    target_path,
+                    fmt,
+                    opts.brief,
+                    opts.mime,
+                    opts.mime_type_only,
+                    opts.mime_enc_only
+                ));
+            }
+        }
+        f_idx = f_idx + 1;
+    }
+
     return 0;
 }

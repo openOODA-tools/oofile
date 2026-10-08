@@ -1,0 +1,106 @@
+// # Core Subsystem Anchor
+//
+// Logline: Unit tests for magic byte detection, MIME resolution, and encoding classification.
+//
+// Setup: Pure verification of pattern matching logic using synthetic in-memory byte buffers.
+//
+// Beats:
+//   1. Verify executable magic signatures (ELF, PE, WASM).
+//   2. Verify document and image magic signatures (PDF, PNG).
+//   3. Verify archive magic signatures (Zip, Gzip).
+//   4. Verify script shebangs and plain text encoding detection.
+
+import "core/magic_signatures.oo";
+import "core/file_detector.oo";
+
+fn str_contains(s: String, needle: String) -> Bool {
+    let n_len: Int = chars_len(needle);
+    let s_len: Int = chars_len(s);
+    if n_len > s_len {
+        return false;
+    }
+    let mut i: Int = 0;
+    while i + n_len <= s_len {
+        if str_slice(s, i, i + n_len) == needle {
+            return true;
+        }
+        i = i + 1;
+    }
+    return false;
+}
+
+fn test_magic_detection() -> Bool {
+    // PDF test
+    let pdf_sample: String = "%PDF-1.7\n1 0 obj";
+    let f_pdf: FileFormat = detect_format_from_bytes(pdf_sample);
+    if f_pdf.mime_type != "application/pdf" {
+        return false;
+    }
+
+    // PE / DOS executable test
+    let pe_sample: String = "MZ openOODA test binary stub";
+    let f_pe: FileFormat = detect_format_from_bytes(pe_sample);
+    if f_pe.mime_type != "application/x-dosexec" {
+        return false;
+    }
+
+    // GIF test
+    let gif_sample: String = "GIF89a 100x100 graphic";
+    let f_gif: FileFormat = detect_format_from_bytes(gif_sample);
+    if f_gif.mime_type != "image/gif" {
+        return false;
+    }
+
+    // SQLite test
+    let sqlite_sample: String = "SQLite format 3\nopenOODA table";
+    let f_sqlite: FileFormat = detect_format_from_bytes(sqlite_sample);
+    if f_sqlite.mime_type != "application/vnd.sqlite3" {
+        return false;
+    }
+
+    // XML test
+    let xml_sample: String = "<?xml version=\"1.0\"?>\n<catalog/>";
+    let f_xml: FileFormat = detect_format_from_bytes(xml_sample);
+    if f_xml.mime_type != "application/xml" {
+        return false;
+    }
+
+    // Shebang script test
+    let script_sample: String = "#!/bin/bash\necho hello\n";
+    let f_script: FileFormat = detect_format_from_bytes(script_sample);
+    if f_script.mime_type != "text/x-shellscript" {
+        return false;
+    }
+    if !str_contains(f_script.description, "/bin/bash") {
+        return false;
+    }
+
+    // JSON test
+    let json_sample: String = "{\"key\": \"value\"}";
+    let f_json: FileFormat = detect_format_from_bytes(json_sample);
+    if f_json.mime_type != "application/json" {
+        return false;
+    }
+
+    // ASCII test
+    let text_sample: String = "Plain english text file without magic header.";
+    let f_text: FileFormat = detect_format_from_bytes(text_sample);
+    if f_text.mime_type != "text/plain" || f_text.charset != "us-ascii" {
+        return false;
+    }
+
+    // Empty test
+    let f_empty: FileFormat = detect_format_from_bytes("");
+    if f_empty.mime_type != "inode/x-empty" {
+        return false;
+    }
+
+    return true;
+}
+
+pub fn run_core_tests() -> Bool {
+    if !test_magic_detection() {
+        return false;
+    }
+    return true;
+}

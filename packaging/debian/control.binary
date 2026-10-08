@@ -1,14 +1,10 @@
-Source: oofile
+Package: oofile
+Version: 0.2.0-1
 Section: utils
 Priority: optional
-Maintainer: openOODA-tools <ops@openooda.org>
-Standards-Version: 4.6.2
-Build-Depends: debhelper-compat (= 13)
-
-Package: oofile
 Architecture: amd64
-Depends: libc6
-Description: Sovereign MIME detector, magic byte identifier, and encoding inspector
+Maintainer: openOODA-tools <ops@openooda.org>
+Description: Sovereign MIME detector, magic byte identifier, and encoding inspector in pure openOODA.
  Magic-byte based file format, MIME type, and encoding identification without exec.
  Capability-bounded openOODA utility with zero ambient authority,
  deep signature identification, POSIX brief/mime flags, and native Model Context Protocol (MCP) surface.

@@ -1,0 +1,90 @@
+// # POSIX CLI Option Parser
+//
+// Logline: Option parsing and dispatch mapping POSIX file flags and output format options.
+//
+// Setup: Pure argument scanning and option structure assembly with zero ambient authority.
+//
+// Beats:
+//   1. Declare FileOpts configuration structure.
+//   2. Parse brief, mime, mime-type, and mime-encoding flags.
+//   3. Parse symlink dereference and JSON formatting options.
+//   4. Deliver populated FileOpts structure for file inspection pipeline.
+
+pub type FileOpts = struct {
+    show_help: Bool,
+    show_version: Bool,
+    mcp_mode: Bool,
+    test_mode: Bool,
+    demo_mode: Bool,
+    json_mode: Bool,
+    brief: Bool,
+    mime: Bool,
+    mime_type_only: Bool,
+    mime_enc_only: Bool,
+    dereference: Bool,
+    files: List[String]
+};
+
+pub fn default_file_opts() -> FileOpts {
+    let empty_files: List[String] = list_new();
+    return FileOpts {
+        show_help: false,
+        show_version: false,
+        mcp_mode: false,
+        test_mode: false,
+        demo_mode: false,
+        json_mode: false,
+        brief: false,
+        mime: false,
+        mime_type_only: false,
+        mime_enc_only: false,
+        dereference: false,
+        files: empty_files
+    };
+}
+
+pub fn parse_cli_args(args: List[String]) -> FileOpts {
+    let mut opts: FileOpts = default_file_opts();
+    let num_args: Int = list_len(args);
+    let mut i: Int = 0;
+    let mut parsing_flags: Bool = true;
+
+    while i < num_args {
+        let arg: String = list_get(args, i);
+
+        if parsing_flags && (arg == "--help") {
+            opts.show_help = true;
+            return opts;
+        } else if parsing_flags && (arg == "-v" || arg == "--version") {
+            opts.show_version = true;
+            return opts;
+        } else if parsing_flags && arg == "--mcp" {
+            opts.mcp_mode = true;
+        } else if parsing_flags && arg == "--test" {
+            opts.test_mode = true;
+        } else if parsing_flags && (arg == "-D" || arg == "--demo") {
+            opts.demo_mode = true;
+        } else if parsing_flags && (arg == "-j" || arg == "--json") {
+            opts.json_mode = true;
+        } else if parsing_flags && (arg == "-b" || arg == "--brief") {
+            opts.brief = true;
+        } else if parsing_flags && (arg == "-i" || arg == "--mime") {
+            opts.mime = true;
+        } else if parsing_flags && arg == "--mime-type" {
+            opts.mime_type_only = true;
+        } else if parsing_flags && arg == "--mime-encoding" {
+            opts.mime_enc_only = true;
+        } else if parsing_flags && (arg == "-L" || arg == "--dereference") {
+            opts.dereference = true;
+        } else if parsing_flags && (arg == "-h" || arg == "--no-dereference") {
+            opts.dereference = false;
+        } else if arg == "--" {
+            parsing_flags = false;
+        } else {
+            opts.files = list_push(opts.files, arg);
+        }
+        i = i + 1;
+    }
+
+    return opts;
+}

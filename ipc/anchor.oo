@@ -1,0 +1,99 @@
+// # IPC Subsystem Anchor
+//
+// Logline: Unit tests for JSON extraction, CLI options parsing, and MCP message dispatch.
+//
+// Setup: Pure verification of JSON parsing and protocol handling without socket or disk I/O.
+//
+// Beats:
+//   1. Verify JSON token scanning and field extraction.
+//   2. Verify CLI argument parsing for brief, mime, and format flags.
+//   3. Verify MCP message handler dispatching for initialize and tools list.
+
+import "ipc/json_field.oo";
+import "ipc/cli_options.oo";
+import "ipc/mcp_server.oo";
+
+fn str_contains(s: String, needle: String) -> Bool {
+    let n_len: Int = chars_len(needle);
+    let s_len: Int = chars_len(s);
+    if n_len > s_len {
+        return false;
+    }
+    let mut i: Int = 0;
+    while i + n_len <= s_len {
+        if str_slice(s, i, i + n_len) == needle {
+            return true;
+        }
+        i = i + 1;
+    }
+    return false;
+}
+
+fn test_json_parsing() -> Bool {
+    let raw: String = "{\"path\":\"/usr/bin/oofile\",\"brief\":true,\"limit\":100}";
+    let p: String = json_extract_str_field(raw, "path");
+    if p != "/usr/bin/oofile" {
+        return false;
+    }
+    let b: Bool = json_extract_bool_field(raw, "brief", false);
+    if !b {
+        return false;
+    }
+    let lim: Int = json_extract_int_field(raw, "limit", 0);
+    if lim != 100 {
+        return false;
+    }
+    return true;
+}
+
+fn test_cli_parsing() -> Bool {
+    let mut args: List[String] = list_new();
+    args = list_push(args, "-b");
+    args = list_push(args, "-i");
+    args = list_push(args, "target.pdf");
+
+    let opts: FileOpts = parse_cli_args(args);
+    if !opts.brief {
+        return false;
+    }
+    if !opts.mime {
+        return false;
+    }
+    if list_len(opts.files) != 1 {
+        return false;
+    }
+    if list_get(opts.files, 0) != "target.pdf" {
+        return false;
+    }
+    return true;
+}
+
+fn test_mcp_dispatch() -> Bool {
+    let init_res: String = render_mcp_init("1");
+    if !str_contains(init_res, "oofile") || !str_contains(init_res, "0.2.0") {
+        return false;
+    }
+
+    let list_res: String = render_mcp_tools_list("2");
+    if !str_contains(list_res, "file_identify") || !str_contains(list_res, "file_mime_type") {
+        return false;
+    }
+    if !str_contains(list_res, "file_detect_bytes") || !str_contains(list_res, "file_inspect_magic") {
+        return false;
+    }
+
+    return true;
+}
+
+pub fn run_ipc_tests() -> Bool {
+    if !test_json_parsing() {
+        return false;
+    }
+    if !test_cli_parsing() {
+        return false;
+    }
+    if !test_mcp_dispatch() {
+        return false;
+    }
+    return true;
+}

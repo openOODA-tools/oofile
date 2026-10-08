@@ -1,9 +1,9 @@
 # Maintainer: openOODA-tools <ops@openooda.org>
 pkgname=oofile-bin
 _pkgname=oofile
-pkgver=0.1.0
+pkgver=0.2.0
 pkgrel=1
-pkgdesc="Magic-byte based file format, MIME type, and encoding identification without exec."
+pkgdesc="Sovereign MIME detector, magic byte identifier, and encoding inspector in pure openOODA"
 arch=('x86_64')
 url="https://github.com/openOODA-tools/oofile"
 license=('Apache-2.0')

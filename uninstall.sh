@@ -4,7 +4,7 @@
 # "Removes oofile binary, package installations, and cache."
 #
 # Usage:
-#   curl -fsSL https://openooda-toofile.github.io/oofile/uninstall.sh | bash
+#   curl -fsSL https://openooda-tools.github.io/oofile/uninstall.sh | bash
 #   or: ./uninstall.sh [options]
 #
 # Options:

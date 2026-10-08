@@ -4,7 +4,7 @@
 # "Magic-byte based file format, MIME type, and encoding identification without exec."
 #
 # Usage:
-#   curl -fsSL https://openooda-toofile.github.io/oofile/install.sh | bash
+#   curl -fsSL https://openooda-tools.github.io/oofile/install.sh | bash
 #
 # Options:
 #   --prefix <dir>       Installation directory (default: /usr/local/bin or ~/.local/bin)
@@ -18,10 +18,10 @@
 
 set -eu
 
-REPO="openOODA-toofile/oofile"
+REPO="openOODA-tools/oofile"
 GITHUB_URL="https://github.com/${REPO}"
-VERSION_PIN="v0.1.0"
-RAW_VERSION="0.1.0"
+VERSION_PIN="v0.2.0"
+RAW_VERSION="0.2.0"
 
 if [ -t 1 ] && [ "${NO_COLOR:-}" = "" ] && [ "${TERM:-dumb}" != "dumb" ]; then
     CYAN="\033[38;5;51m"
